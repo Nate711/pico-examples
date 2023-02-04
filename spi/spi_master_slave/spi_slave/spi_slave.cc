@@ -65,7 +65,35 @@ void buf16_to_buf8(uint16_t buf16[], uint8_t buf8[], size_t len_buf16)
 
 void cs_low_callback(uint gpio, uint32_t events)
 {
-    spi_write16_read16_blocking(spi_default, out_buf, in_buf, BUF_LEN);
+    // Printing hello somehow causes the first MISO bit to be early enough
+    printf("hello");
+
+    // Waiting for sck to go down does not help, first MISO still too high
+    // while (gpio_get(PICO_DEFAULT_SPI_SCK_PIN))
+    // {
+    // }
+
+    // MISO only works at 1mbps with printf("hello")
+    // spi_write16_read16_blocking(spi_default, out_buf, in_buf, BUF_LEN);
+    
+    // Same results as using spi_write16_read16_blocking
+    // Does not work at 1mbps without printf("hello") before. Even with the print 10mbps does not work
+    int bytes_read = 0;
+    while (bytes_read < BUF_LEN)
+    {
+        // if (spi_is_readable(spi_default))
+        // {
+        while (!spi_is_writable(spi_default))
+        {
+        }
+        spi_get_hw(spi_default)->dr = out_buf[bytes_read];
+        while (!spi_is_readable(spi_default))
+        {
+        }
+        in_buf[bytes_read] = spi_get_hw(spi_default)->dr;
+        bytes_read++;
+    }
+
     buf16_to_buf8(in_buf, in_buf8, BUF_LEN);
 
     // Write to stdio whatever came in on the MOSI line.
