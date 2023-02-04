@@ -65,7 +65,6 @@ void buf16_to_buf8(uint16_t buf16[], uint8_t buf8[], size_t len_buf16)
 
 void cs_low_callback(uint gpio, uint32_t events)
 {
-    printf("GPIO %d %d\n", gpio, events);
     spi_write16_read16_blocking(spi_default, out_buf, in_buf, BUF_LEN);
     buf16_to_buf8(in_buf, in_buf8, BUF_LEN);
 
