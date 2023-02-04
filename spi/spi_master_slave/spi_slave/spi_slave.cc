@@ -58,8 +58,8 @@ void buf16_to_buf8(uint16_t buf16[], uint8_t buf8[], size_t len_buf16)
 {
     for (size_t i = 0; i < len_buf16; i++)
     {
-        buf8[2 * i] = static_cast<uint8_t>(buf16[i] & 0xff);
-        buf8[2 * i + 1] = static_cast<uint8_t>((buf16[i] >> 8) & 0xff);
+        buf8[2 * i] = static_cast<uint8_t>((buf16[i] >> 8) & 0xff);
+        buf8[2 * i + 1] = static_cast<uint8_t>(buf16[i] & 0xff);
     }
 }
 
