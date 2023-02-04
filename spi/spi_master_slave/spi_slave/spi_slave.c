@@ -1,7 +1,7 @@
 // Copyright (c) 2021 Michael Stoops. All rights reserved.
 // Portions copyright (c) 2021 Raspberry Pi (Trading) Ltd.
-// 
-// Redistribution and use in source and binary forms, with or without modification, are permitted provided that the 
+//
+// Redistribution and use in source and binary forms, with or without modification, are permitted provided that the
 // following conditions are met:
 //
 // 1. Redistributions of source code must retain the above copyright notice, this list of conditions and the following
@@ -10,13 +10,13 @@
 //    following disclaimer in the documentation and/or other materials provided with the distribution.
 // 3. Neither the name of the copyright holder nor the names of its contributors may be used to endorse or promote
 //    products derived from this software without specific prior written permission.
-// 
-// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES, 
-// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE 
-// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL, 
-// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR 
-// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY, 
-// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE 
+//
+// THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND ANY EXPRESS OR IMPLIED WARRANTIES,
+// INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
+// DISCLAIMED. IN NO EVENT SHALL THE COPYRIGHT HOLDER OR CONTRIBUTORS BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
+// SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO, PROCUREMENT OF SUBSTITUTE GOODS OR
+// SERVICES; LOSS OF USE, DATA, OR PROFITS; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
+// WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE
 // USE OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //
 // SPDX-License-Identifier: BSD-3-Clause
@@ -29,11 +29,14 @@
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
 
-#define BUF_LEN         0x100
+#define BUF_LEN 8
+#define SPI_FREQ 10000000
 
-void printbuf(uint8_t buf[], size_t len) {
+void printbuf(uint8_t buf[], size_t len)
+{
     int i;
-    for (i = 0; i < len; ++i) {
+    for (i = 0; i < len; ++i)
+    {
         if (i % 16 == 15)
             printf("%02x\n", buf[i]);
         else
@@ -41,13 +44,14 @@ void printbuf(uint8_t buf[], size_t len) {
     }
 
     // append trailing newline if there isn't one
-    if (i % 16) {
+    if (i % 16)
+    {
         putchar('\n');
     }
 }
 
-
-int main() {
+int main()
+{
     // Enable UART so we can print
     stdio_init_all();
 #if !defined(spi_default) || !defined(PICO_DEFAULT_SPI_SCK_PIN) || !defined(PICO_DEFAULT_SPI_TX_PIN) || !defined(PICO_DEFAULT_SPI_RX_PIN) || !defined(PICO_DEFAULT_SPI_CSN_PIN)
@@ -58,33 +62,40 @@ int main() {
     printf("SPI slave example\n");
 
     // Enable SPI 0 at 1 MHz and connect to GPIOs
-    spi_init(spi_default, 1000 * 1000);
+    spi_init(spi_default, SPI_FREQ);
     spi_set_slave(spi_default, true);
     gpio_set_function(PICO_DEFAULT_SPI_RX_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_SCK_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_TX_PIN, GPIO_FUNC_SPI);
     gpio_set_function(PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI);
+
+    spi_set_format(spi0, 16, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
+
     // Make the SPI pins available to picotool
     bi_decl(bi_4pins_with_func(PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_SCK_PIN, PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI));
 
-    uint8_t out_buf[BUF_LEN], in_buf[BUF_LEN];
+    // uint8_t out_buf[BUF_LEN], in_buf[BUF_LEN];
+    uint16_t out_buf[BUF_LEN], in_buf[BUF_LEN];
 
     // Initialize output buffer
-    for (size_t i = 0; i < BUF_LEN; ++i) {
+    for (size_t i = 0; i < BUF_LEN; ++i)
+    {
         // bit-inverted from i. The values should be: {0xff, 0xfe, 0xfd...}
-        out_buf[i] = ~i;
+        out_buf[i] = BUF_LEN - i - 1;
     }
 
     printf("SPI slave says: When reading from MOSI, the following buffer will be written to MISO:\n");
-    printbuf(out_buf, BUF_LEN);
-    
-    for (size_t i = 0; ; ++i) {
+    // printbuf(out_buf, BUF_LEN);
+
+    for (size_t i = 0;; ++i)
+    {
         // Write the output buffer to MISO, and at the same time read from MOSI.
-        spi_write_read_blocking(spi_default, out_buf, in_buf, BUF_LEN);
+        spi_write16_read16_blocking(spi_default, out_buf, in_buf, BUF_LEN);
 
         // Write to stdio whatever came in on the MOSI line.
-        printf("SPI slave says: read page %d from the MOSI line:\n", i);
-        printbuf(in_buf, BUF_LEN);
+        // printf("SPI slave says: read page %d from the MOSI line:\n", i);
+        printf("Page %d from the MOSI line: %d\n", i, (int)in_buf[0]);
+        // printbuf(in_buf, BUF_LEN);
     }
 #endif
 }
