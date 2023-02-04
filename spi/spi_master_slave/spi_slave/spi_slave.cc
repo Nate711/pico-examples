@@ -28,26 +28,54 @@
 #include "pico/stdlib.h"
 #include "pico/binary_info.h"
 #include "hardware/spi.h"
+#include "hardware/gpio.h"
 
 #define BUF_LEN 8
-#define SPI_FREQ 10000000
+// #define SPI_FREQ 10000000
+#define SPI_FREQ 1000000
 
-void printbuf(uint8_t buf[], size_t len)
+uint16_t out_buf[BUF_LEN], in_buf[BUF_LEN];
+uint8_t in_buf8[BUF_LEN * 2];
+int i = 0;
+
+void printbuf8(uint8_t buf[], size_t len)
 {
-    int i;
-    for (i = 0; i < len; ++i)
+    for (size_t i = 0; i < len; ++i)
     {
-        if (i % 16 == 15)
-            printf("%02x\n", buf[i]);
-        else
-            printf("%02x ", buf[i]);
+        printf("%02x ", buf[i]);
     }
+}
 
-    // append trailing newline if there isn't one
-    if (i % 16)
+void printbuf16(uint16_t buf[], size_t len)
+{
+    for (size_t i = 0; i < len; ++i)
     {
-        putchar('\n');
+        printf("%02x ", buf[i]);
     }
+}
+
+void buf16_to_buf8(uint16_t buf16[], uint8_t buf8[], size_t len_buf16)
+{
+    for (size_t i = 0; i < len_buf16; i++)
+    {
+        buf8[2 * i] = static_cast<uint8_t>(buf16[i] & 0xff);
+        buf8[2 * i + 1] = static_cast<uint8_t>((buf16[i] >> 8) & 0xff);
+    }
+}
+
+void cs_low_callback(uint gpio, uint32_t events)
+{
+    printf("GPIO %d %d\n", gpio, events);
+    spi_write16_read16_blocking(spi_default, out_buf, in_buf, BUF_LEN);
+    buf16_to_buf8(in_buf, in_buf8, BUF_LEN);
+
+    // Write to stdio whatever came in on the MOSI line.
+    // printf("SPI slave says: read page %d from the MOSI line:\n", i);
+    printf("Page %d from the MOSI line: ", i++);
+    printbuf8(in_buf8, BUF_LEN * 2);
+    printf("\twrote: ");
+    printbuf16(out_buf, BUF_LEN);
+    putchar('\n');
 }
 
 int main()
@@ -71,31 +99,17 @@ int main()
 
     spi_set_format(spi0, 16, SPI_CPOL_1, SPI_CPHA_1, SPI_MSB_FIRST);
 
-    // Make the SPI pins available to picotool
-    bi_decl(bi_4pins_with_func(PICO_DEFAULT_SPI_RX_PIN, PICO_DEFAULT_SPI_TX_PIN, PICO_DEFAULT_SPI_SCK_PIN, PICO_DEFAULT_SPI_CSN_PIN, GPIO_FUNC_SPI));
-
-    // uint8_t out_buf[BUF_LEN], in_buf[BUF_LEN];
-    uint16_t out_buf[BUF_LEN], in_buf[BUF_LEN];
-
-    // Initialize output buffer
+    // Initialize output buffer with uint16_t 8 to 0
     for (size_t i = 0; i < BUF_LEN; ++i)
     {
-        // bit-inverted from i. The values should be: {0xff, 0xfe, 0xfd...}
         out_buf[i] = BUF_LEN - i - 1;
     }
 
-    printf("SPI slave says: When reading from MOSI, the following buffer will be written to MISO:\n");
-    // printbuf(out_buf, BUF_LEN);
+    gpio_set_irq_enabled_with_callback(PICO_DEFAULT_SPI_CSN_PIN, GPIO_IRQ_EDGE_FALL, true, &cs_low_callback);
 
-    for (size_t i = 0;; ++i)
+    while (1)
     {
-        // Write the output buffer to MISO, and at the same time read from MOSI.
-        spi_write16_read16_blocking(spi_default, out_buf, in_buf, BUF_LEN);
-
-        // Write to stdio whatever came in on the MOSI line.
-        // printf("SPI slave says: read page %d from the MOSI line:\n", i);
-        printf("Page %d from the MOSI line: %d\n", i, (int)in_buf[0]);
-        // printbuf(in_buf, BUF_LEN);
     }
+    return 0;
 #endif
 }

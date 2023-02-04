@@ -1,5 +1,5 @@
 add_executable(spi_slave
-        spi_slave.c
+        spi_slave.cc
         )
 
 # Pull in basic dependencies
